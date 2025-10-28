@@ -28,12 +28,16 @@
 
 #if CFG_TUH_ENABLED && CFG_TUSB_MCU == OPT_MCU_NONE
 
+//#include "soc.h"
 #include "host/hcd.h"
 #include "ux_hcd_xhci_api.h"
-//#include "dcd_ensemble_def.h" //for gobal USB registers
 
-#include "clk.h"
-#include "power.h"
+#include "RTE_Components.h"
+#include CMSIS_device_header
+#include "sys_clocks.h"
+#include "sys_utils.h"
+#include "sys_ctrl_usb.h"
+
 #include "bsp/board_api.h"
 
 
@@ -93,6 +97,56 @@ volatile struct {
         } gctl_b;
     };
 } *host_ugbl = (void *) (USB_BASE + 0xC110);
+#endif
+
+#if 1
+#define CLK_ENA_CLK20M              (1U << 22)   // Enable USB and 10M_CLK
+#define VBAT_PWR_CTRL_UPHY_PWR_MASK (1U << 16)   // Mask off the power supply for USB PHY
+#define VBAT_PWR_CTRL_UPHY_ISO      (1U << 17)   // Enable isolation for USB PHY
+
+static inline void enable_cgu_clk20m(void) {
+    CGU->CLK_ENA |= CLK_ENA_CLK20M;
+}
+
+static inline void disable_cgu_clk20m(void) {
+    CGU->CLK_ENA &= ~CLK_ENA_CLK20M;
+}
+
+static inline void enable_usb_phy_power(void) {
+    VBAT->PWR_CTRL &= ~VBAT_PWR_CTRL_UPHY_PWR_MASK;
+}
+
+static inline void disable_usb_phy_power(void) {
+    VBAT->PWR_CTRL |= VBAT_PWR_CTRL_UPHY_PWR_MASK;
+}
+
+static inline void enable_usb_phy_isolation(void) {
+    VBAT->PWR_CTRL |= VBAT_PWR_CTRL_UPHY_ISO;
+}
+
+static inline void disable_usb_phy_isolation(void) {
+    VBAT->PWR_CTRL &= ~VBAT_PWR_CTRL_UPHY_ISO;
+}
+
+static inline void _dcd_busy_wait(uint32_t usec) {
+    sys_busy_loop_us(usec);
+}
+
+static inline void _dcd_clean_dcache(void* dptr, size_t size) {
+    RTSS_CleanDCache_by_Addr(dptr, size);
+}
+
+static inline void _dcd_invalidate_dcache(void* dptr, size_t size) {
+    RTSS_InvalidateDCache_by_Addr(dptr, size);
+}
+
+static inline uint32_t _dcd_local_to_global(const volatile void *local_addr) {
+    if (local_addr == NULL) {
+        return 0;
+    }
+
+    return LocalToGlobal(local_addr);
+}
 #endif
 
 static UX_DEVICE  *_created_device = NULL;

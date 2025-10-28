@@ -3,15 +3,10 @@
 
 #include "host/hcd.h"
 
-#if defined(CORE_M55_HE)
-#include "M55_HE.h"
-#elif defined(CORE_M55_HP)
-#include "M55_HP.h"
-#else
-#error "Unsupported core!"
-#endif
+#include "RTE_Components.h"
+#include CMSIS_device_header
 
-//#define USE_STATIC_RAM
+#include "sys_utils.h"
 
 #ifdef   __cplusplus
 
@@ -378,7 +373,7 @@ typedef struct
     volatile uint32_t  DEPCMDPAR1;     /*!< (@ 0x00000004) Device Physical Endpoint-n Command Parameter 1 Register  */
     volatile uint32_t  DEPCMDPAR0;     /*!< (@ 0x00000008) Device Physical Endpoint-n Command Parameter 0 Register  */
     volatile uint32_t  DEPCMD;         /*!< (@ 0x0000000C) Device Physical Endpoint-n Command Register              */
-} USB_USB_ENDPNT_CMD_Type;
+} _USB_USB_ENDPNT_CMD_Type;
 
 typedef struct {
     uint32_t CAPLENGTH;
@@ -455,10 +450,10 @@ typedef struct {
     volatile const  uint32_t  RESERVED17[2];
     volatile uint32_t  DALEPENA;                     /*!< (@ 0x0000C720) Device Active USB Endpoint Enable Register                 */
     volatile const  uint32_t  RESERVED18[55];
-    volatile USB_USB_ENDPNT_CMD_Type USB_ENDPNT_CMD[8];/*!< (@ 0x0000C800) [0..7]                                                   */
+    volatile _USB_USB_ENDPNT_CMD_Type USB_ENDPNT_CMD[8];/*!< (@ 0x0000C800) [0..7]                                                   */
     volatile const  uint32_t  RESERVED19[96];
     volatile uint32_t  DEV_IMOD0;                    /*!< (@ 0x0000CA00) Device Interrupt Moderation Register                       */
-} USB_Type;                                     /*!< Size = 51716 (0xca04)  */
+} _USB_Type;                                     /*!< Size = 51716 (0xca04)  */
 
 
 /* Define USBX Memory Management structure.  */

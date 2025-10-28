@@ -1380,7 +1380,7 @@ typedef struct UX_XHCI_PORT_STRUCT
 typedef struct UX_HCD_XHCI_STRUCT
 {
    UX_HCD *ux_hcd_xhci_hcd_owner;
-   USB_Type  *regs;   /* USB DWC3 Hardware registers Base */
+   _USB_Type  *regs;   /* USB DWC3 Hardware registers Base */
    UX_XHCI_OP_REGS  *op_regs;  /*XHCI Operational Register Base*/
    UX_XHCI_RUN_REGS  *run_regs; /*XHCI Run time Register Base*/
    UX_XHCI_DB_REGS  *dba_regs;  /* Doorbell register base  */
