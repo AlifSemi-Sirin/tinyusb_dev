@@ -327,7 +327,7 @@ uint32_t  _ux_hcd_xhci_initialize(UX_HCD *hcd)
     hcd -> ux_hcd_controller_hardware =  (void *) xhci;
 
     /* Get the USB base address.  */
-    xhci->regs = (_USB_Type  *)hcd -> ux_hcd_io;
+    xhci->regs = (USB_Type  *)hcd -> ux_hcd_io;
 
     /* Obtain the address of the HCOR registers. This is a byte offset from the
        HCOR Cap registers.  */

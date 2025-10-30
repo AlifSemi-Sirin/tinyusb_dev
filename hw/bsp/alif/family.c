@@ -29,14 +29,15 @@ static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET(DT_ALIAS(sw0), gpios)
 #endif
 
 /**
- * @brief Board init: configure LED and button pins
+ * @brief This CB required to make receive_str() function ublocking
  */
-
-void tracelib_cb(uint32_t event)
-{
-    //This CB required to make receive_str() function ublocking
+void tracelib_cb(uint32_t event) {
+    (void) event;
 }
 
+/**
+ * @brief Board init: configure LED and button pins
+ */
 void board_init(void) {
 #if CFG_TUSB_OS == OPT_OS_NONE
     // Configure Systick for each millisec
@@ -206,7 +207,11 @@ uint32_t board_millis(void) {
 #if CFG_TUSB_OS == OPT_OS_NONE || CFG_TUSB_OS == OPT_OS_FREERTOS
 void USB_IRQHandler(void);
 void USB_IRQHandler(void) {
+#if CFG_TUSB_RHPORT0_MODE == OPT_MODE_DEVICE
+    dcd_int_handler(0);
+#elif CFG_TUSB_RHPORT0_MODE == OPT_MODE_HOST
     tusb_int_handler(0, true);
+#endif
 }
 #endif
 

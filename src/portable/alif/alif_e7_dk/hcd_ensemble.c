@@ -28,18 +28,14 @@
 
 #if CFG_TUH_ENABLED && CFG_TUSB_MCU == OPT_MCU_NONE
 
-//#include "soc.h"
-#include "host/hcd.h"
-#include "ux_hcd_xhci_api.h"
-
 #include "RTE_Components.h"
 #include CMSIS_device_header
 #include "sys_clocks.h"
-#include "sys_utils.h"
-#include "sys_ctrl_usb.h"
+
+#include "host/hcd.h"
+#include "ux_hcd_xhci_api.h"
 
 #include "bsp/board_api.h"
-
 
 #ifndef MIN
     #define MIN(a,b) (((a) < (b)) ? (a) : (b))
@@ -99,7 +95,6 @@ volatile struct {
 } *host_ugbl = (void *) (USB_BASE + 0xC110);
 #endif
 
-#if 1
 #define CLK_ENA_CLK20M              (1U << 22)   // Enable USB and 10M_CLK
 #define VBAT_PWR_CTRL_UPHY_PWR_MASK (1U << 16)   // Mask off the power supply for USB PHY
 #define VBAT_PWR_CTRL_UPHY_ISO      (1U << 17)   // Enable isolation for USB PHY
@@ -128,19 +123,20 @@ static inline void disable_usb_phy_isolation(void) {
     VBAT->PWR_CTRL &= ~VBAT_PWR_CTRL_UPHY_ISO;
 }
 
-static inline void _dcd_busy_wait(uint32_t usec) {
+static inline void _hcd_busy_wait(uint32_t usec) {
     sys_busy_loop_us(usec);
 }
 
-static inline void _dcd_clean_dcache(void* dptr, size_t size) {
+#if 0
+static inline void _hcd_clean_dcache(void* dptr, size_t size) {
     RTSS_CleanDCache_by_Addr(dptr, size);
 }
 
-static inline void _dcd_invalidate_dcache(void* dptr, size_t size) {
+static inline void _hcd_invalidate_dcache(void* dptr, size_t size) {
     RTSS_InvalidateDCache_by_Addr(dptr, size);
 }
 
-static inline uint32_t _dcd_local_to_global(const volatile void *local_addr) {
+static inline uint32_t _hcd_local_to_global(const volatile void *local_addr) {
     if (local_addr == NULL) {
         return 0;
     }
@@ -278,13 +274,13 @@ bool hcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
   // clear usb phy power-on-reset signal
   CLKCTL_PER_MST->USB_CTRL2 &= ~(1 << 8);
 
-  sys_busy_loop_us(50000);
+  _hcd_busy_wait(50000);
   host_ugbl->gctl_b.coresoftreset = 1;
-  sys_busy_loop_us(50000);
+  _hcd_busy_wait(50000);
   host_ugbl->gctl_b.prtcapdir = 0x1; //Host mode
-  sys_busy_loop_us(50000);
+  _hcd_busy_wait(50000);
   host_ugbl->gctl_b.coresoftreset = 0;
-  sys_busy_loop_us(50000);
+  _hcd_busy_wait(50000);
 
 
   hcd.ux_hcd_io = (void*)USB_BASE;
@@ -380,6 +376,10 @@ void hcd_int_handler(uint8_t rhport, bool in_isr) {
 
   switch (trb_comp_code)
   {
+      case COMP_BABBLE_DETECTED_ERROR:
+      #if DEBUG
+          printf("WARN: BABBLE_DETECTED_ERROR\n\r");
+      #endif
       case COMP_SUCCESS:
       case COMP_SHORT_PACKET:
           xfer_result = XFER_RESULT_SUCCESS;
@@ -391,7 +391,7 @@ void hcd_int_handler(uint8_t rhport, bool in_isr) {
 
   TU_ASSERT(slot_id < UX_XHCI_MAX_HC_SLOTS,);
   //FIXME: force assert to prevent board crash later
-//  TU_ASSERT(xfer_result == XFER_RESULT_SUCCESS,);
+  //  TU_ASSERT(xfer_result == XFER_RESULT_SUCCESS,);
 
   tuh_xhci_slot_t *slot = &tuh_xhci_slots[slot_id];
 
