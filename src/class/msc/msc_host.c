@@ -145,6 +145,12 @@ bool tuh_msc_scsi_command(uint8_t daddr, msc_cbw_t const* cbw, void* data,
   TU_VERIFY(usbh_edpt_claim(daddr, p_msc->ep_out));
   msch_epbuf_t* epbuf = get_epbuf(daddr);
 
+//  printf("%s(%p, %u)\r\n", __FUNCTION__, data, 512);
+  if ((data != NULL) && (((uint32_t)data < 0x20004000) || (uint32_t)data > 0x200F0000))
+  {
+      printf("Wrong data address %p\r\n", data);
+  }
+
   epbuf->cbw = *cbw;
   p_msc->buffer = data;
   p_msc->complete_cb = complete_cb;

@@ -50,6 +50,8 @@ void cdc_task(void);
 int main(void) {
   board_init();
 
+  printf("board_init() completed.\n");
+
   // init device stack on configured roothub port
   tusb_rhport_init_t dev_init = {
     .role = TUSB_ROLE_DEVICE,

@@ -299,8 +299,10 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
 
     // Enable 20mhz clock
     enable_cgu_clk20m();
+#if SOC_FEAT_FORCE_ENABLE_SYSTEM_CLOCKS
     // Enable usb peripheral clock
     enable_usb_periph_clk();
+#endif //SOC_FEAT_FORCE_ENABLE_SYSTEM_CLOCKS
     // Power up usb phy
     enable_usb_phy_power();
     // Disable usb phy isolation
@@ -892,7 +894,9 @@ void dcd_uninit(void) {
     usb_ctrl2_phy_power_on_reset_set();
     enable_usb_phy_isolation(); // enable usb phy isolation
     disable_usb_phy_power(); // power down usb phy
+#if SOC_FEAT_FORCE_ENABLE_SYSTEM_CLOCKS
     disable_usb_periph_clk(); // disable usb peripheral clock
+#endif //SOC_FEAT_FORCE_ENABLE_SYSTEM_CLOCKS
 }
 
 static uint8_t _dcd_cmd_wait(uint8_t ep, uint8_t typ, uint16_t param) {

@@ -890,9 +890,9 @@ bool hcd_edpt_xfer(uint8_t rhport, uint8_t dev_addr, uint8_t ep_addr, uint8_t * 
   printf("\r\n");
 #endif
 
-  if ((buffer != NULL) && ((uint32_t)buffer < 0x20004000))
+  if ((buffer != NULL) && (((uint32_t)buffer < 0x20004000) || (uint32_t)buffer > 0x200F0000))
   {
-      printf("Wrong buffer address\r\n");
+      printf("Wrong buffer address %p\r\n", buffer);
   }
 
   if (tu_edpt_number(ep_addr) == 0)
