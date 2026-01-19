@@ -268,6 +268,14 @@ static inline void disable_usb_phy_isolation(void) {
     VBAT->PWR_CTRL &= ~VBAT_PWR_CTRL_UPHY_ISO;
 }
 
+static inline void usb_ctrl2_phy_power_on_reset_set(void) {
+    CLKCTL_PER_MST->USB_CTRL2 |= USB_CTRL2_PHY_POR;
+}
+
+static inline void usb_ctrl2_phy_power_on_reset_clear(void) {
+    CLKCTL_PER_MST->USB_CTRL2 &= ~USB_CTRL2_PHY_POR;
+}
+
 static inline void _dcd_busy_wait(uint32_t usec) {
     sys_busy_loop_us(usec);
 }
@@ -301,6 +309,9 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
     enable_cgu_clk20m();
     // Enable usb peripheral clock
     enable_usb_periph_clk();
+#if SOC_FEAT_USB_NEED_EXTRA_CLK
+    enable_sd_periph_clk();
+#endif
     // Power up usb phy
     enable_usb_phy_power();
     // Disable usb phy isolation
@@ -559,8 +570,10 @@ void dcd_int_disable(uint8_t rhport) {
 // leave this empty and also no queue an event for the corresponding SETUP packet.
 void dcd_set_address(uint8_t rhport, uint8_t dev_addr) {
     LOG("%010u >%s", DWT->CYCCNT, __func__);
-    // Set device address
-    udev->dcfg_b.devaddr = dev_addr;
+    // Device address is set from the ISR when SETUP packet is received
+    // By point TinyUSB calls this function, the address has already been
+    // set and STATUS sent back to the host. Xfer call below is purely for
+    // internal TinyUSB state to conclude transaction and issue next SETUP req.
     dcd_edpt_xfer(rhport, tu_edpt_addr(0, TUSB_DIR_IN), NULL, 0);
 
     // NOTE: After receiving the DEPEVT_XFERNOTREADY event,
@@ -1039,6 +1052,9 @@ static void _dcd_handle_depevt(uint8_t rhport, uint8_t ep, uint8_t evt, uint8_t 
             // XferNotReady NotActive for status stage
             if ((ep == 1) &&
                 depevt_sts.xfernotready.stage == DEPEVT_XFERNOTREADY_STS_CTRLSTS) {
+                if (0x00 == _ctrl_buf[0] && TUSB_REQ_SET_ADDRESS == _ctrl_buf[1]) {
+                    udev->dcfg_b.devaddr = _ctrl_buf[2];
+                }
                 _dcd_start_xfer(1, NULL, 0, TRBCTL_CTL_STAT2);
                 break;
             }
