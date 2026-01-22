@@ -201,6 +201,14 @@ static inline void disable_usb_phy_isolation(void) {
     VBAT->PWR_CTRL &= ~VBAT_PWR_CTRL_UPHY_ISO;
 }
 
+static inline void usb_ctrl2_phy_power_on_reset_set(void) {
+    CLKCTL_PER_MST->USB_CTRL2 |= USB_CTRL2_PHY_POR;
+}
+
+static inline void usb_ctrl2_phy_power_on_reset_clear(void) {
+    CLKCTL_PER_MST->USB_CTRL2 &= ~USB_CTRL2_PHY_POR;
+}
+
 static inline void _dcd_busy_wait(uint32_t usec) {
     sys_busy_loop_us(usec);
 }
@@ -230,12 +238,17 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
     enable_cgu_clk20m();
     // Enable usb peripheral clock
     enable_usb_periph_clk();
+#if SOC_FEAT_USB_NEED_EXTRA_CLK
+    enable_sd_periph_clk();
+#endif
     // Power up usb phy
     enable_usb_phy_power();
     // Disable usb phy isolation
     disable_usb_phy_isolation();
     // Clear usb phy power-on-reset signal
     usb_ctrl2_phy_power_on_reset_clear();
+
+    puts("dcd_init, clocks done");
 
     // NOTE: Force stop/disconnect could be used for debug purpose only
     //dcd_disconnect(rhport);
@@ -269,12 +282,16 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
     uint32_t gsnpsid = ugbl->gsnpsid;
     if ((gsnpsid & 0xFFFF0000) != GSNPSID_HIGH) {
         // Invalid USB controller ID!
+        printf("INVLUSBCTRLID=0x%08x(expected 0x%08x)",
+            gsnpsid, (GSNPSID_HIGH | GSNPSID_LOW));
         LOG("INVLUSBCTRLID=0x%08x(expected 0x%08x)",
             gsnpsid, (GSNPSID_HIGH | GSNPSID_LOW));
         return false;
     }
     if ((gsnpsid & 0x0000FFFF) != GSNPSID_LOW) {
         // Unsupported USB controller version!
+        printf("USBCTRLVER=0x%08x(expected 0x%08x)",
+            gsnpsid, (GSNPSID_HIGH | GSNPSID_LOW));
         LOG("USBCTRLVER=0x%08x(expected 0x%08x)",
             gsnpsid, (GSNPSID_HIGH | GSNPSID_LOW));
     }
@@ -298,6 +315,8 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
     // Clear Event Buffer counter
     ugbl->gevntcount0_b.evntcount = 0;
 
+    puts("dcd_init, event buffer done");
+
     // Leave the default values for GCTL
 
     // Set USB speed
@@ -320,6 +339,8 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
     // Endpoint Configuration - Start config phase
     _dcd_cmd_wait(PHY_EP0, CMDTYP_DEPSTARTCFG, 0);
 
+    puts("dcd_init, CMDTYP_DEPSTARTCFG done");
+
     // Endpoint Configuration - EP0 OUT
     depcfg_params_t *depcfg_params = (depcfg_params_t *)udev->depcmd[PHY_EP0].params;
     depcfg_params->eptype = 0;                              // Control Endpoint
@@ -339,6 +360,8 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
     depcfg_params->epnum = PHY_EP0;                         // OUT endpoint
     depcfg_params->fifobased = 0;                           // Not FIFO based
     _dcd_cmd_wait(PHY_EP0, CMDTYP_DEPCFG, 0);
+
+    puts("dcd_init, EP0 CMDTYP_DEPCFG done");
 
     // Endpoint Configuration - EP0 IN
     depcfg_params = (depcfg_params_t *)udev->depcmd[PHY_EP1].params;
@@ -360,13 +383,17 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
     depcfg_params->fifobased = 0;                           // Not FIFO based
     _dcd_cmd_wait(PHY_EP1, CMDTYP_DEPCFG, 0);
 
+    puts("dcd_init, EP1 CMDTYP_DEPCFG done");
+
     // Set initial XFER configuration for CONTROL eps
     depxfercfg_params_t *depxfercfg_params = (depxfercfg_params_t *)udev->depcmd[0].params;
     depxfercfg_params->numxferres = 1;// Number of Transfer Resources
     _dcd_cmd_wait(PHY_EP0, CMDTYP_DEPXFERCFG, 0);
+    puts("dcd_init, EP0 CMDTYP_DEPXFERCFG done");
     depxfercfg_params = (depxfercfg_params_t *)udev->depcmd[1].params;
     depxfercfg_params->numxferres = 1;// Number of Transfer Resources
     _dcd_cmd_wait(PHY_EP1, CMDTYP_DEPXFERCFG, 0);
+    puts("dcd_init, EP1 CMDTYP_DEPXFERCFG done");
 
     // Prepare TRB for the first setup packet
     memset(_ctrl_buf, 0, sizeof(_ctrl_buf));
@@ -388,12 +415,17 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
     depstrtxfer_params->tdaddrhigh = 0;
     _dcd_cmd_wait(PHY_EP0, CMDTYP_DEPSTRTXFER, 0);
 
+    puts("dcd_init, CMDTYP_DEPSTRTXFER done");
+
     // Enable event interrupts for EP0-OUT and EP0-IN
     udev->dalepena_b.usbactep0out = 1;
     udev->dalepena_b.usbactep0in = 1;
 
+    puts("dcd_init, event interrupts enabled");
+
     // Allow device to attach to the host (enable pull-ups)
     dcd_connect(rhport);
+    puts("dcd_init, pullups enabled");
 
     // Enable interrupts in the NVIC
     NVIC_ClearPendingIRQ(USB_IRQ_IRQn);
@@ -403,6 +435,7 @@ bool dcd_init(uint8_t rhport, const tusb_rhport_init_t* rh_init) {
 #else
     dcd_int_enable(rhport);
 #endif
+    puts("IRQ enabled");
 
     return true;
 }
@@ -481,8 +514,10 @@ void dcd_int_disable(uint8_t rhport) {
 // leave this empty and also no queue an event for the corresponding SETUP packet.
 void dcd_set_address(uint8_t rhport, uint8_t dev_addr) {
     LOG("%010u >%s", DWT->CYCCNT, __func__);
-    // Set device address
-    udev->dcfg_b.devaddr = dev_addr;
+    // Device address is set from the ISR when SETUP packet is received
+    // By point TinyUSB calls this function, the address has already been
+    // set and STATUS sent back to the host. Xfer call below is purely for
+    // internal TinyUSB state to conclude transaction and issue next SETUP req.
     dcd_edpt_xfer(rhport, tu_edpt_addr(0, TUSB_DIR_IN), NULL, 0);
 
     // NOTE: After receiving the DEPEVT_XFERNOTREADY event,
@@ -872,6 +907,9 @@ static void _dcd_handle_depevt(uint8_t rhport, uint8_t ep, uint8_t evt, uint8_t 
             // XferNotReady NotActive for status stage
             if ((ep == 1) &&
                 depevt_sts.xfernotready.stage == DEPEVT_XFERNOTREADY_STS_CTRLSTS) {
+                if (0x00 == _ctrl_buf[0] && TUSB_REQ_SET_ADDRESS == _ctrl_buf[1]) {
+                    udev->dcfg_b.devaddr = _ctrl_buf[2];
+                }
                 _dcd_start_xfer(1, NULL, 0, TRBCTL_CTL_STAT2);
                 break;
             }
